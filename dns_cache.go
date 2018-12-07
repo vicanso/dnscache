@@ -9,10 +9,13 @@ import (
 )
 
 type (
+	// OnStats onstats function
+	OnStats func(host string, d time.Duration, ipAddr *net.IPAddr)
 	// DNSCache dns cache
 	DNSCache struct {
-		Caches *sync.Map
-		TTL    int64
+		Caches  *sync.Map
+		TTL     int64
+		OnStats OnStats
 	}
 	// IPCache ip cache
 	IPCache struct {
@@ -45,8 +48,14 @@ func (ds *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 }
 
 // Lookup lookup
-func (ds *DNSCache) Lookup(host string) (*net.IPAddr, error) {
-	return net.ResolveIPAddr("", host)
+func (ds *DNSCache) Lookup(host string) (ipAddr *net.IPAddr, err error) {
+	start := time.Now()
+	ipAddr, err = net.ResolveIPAddr("", host)
+	d := time.Since(start)
+	if ds.OnStats != nil {
+		ds.OnStats(host, d, ipAddr)
+	}
+	return
 }
 
 // LookupWithCache lookup with cache

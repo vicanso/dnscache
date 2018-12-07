@@ -34,6 +34,23 @@ func TestLookupWithCache(t *testing.T) {
 	}
 }
 
+func TestOnStats(t *testing.T) {
+	ds := New(60)
+	host := "www.baidu.com"
+	done := false
+	ds.OnStats = func(h string, d time.Duration, _ *net.IPAddr) {
+		if d.Nanoseconds() == 0 || h != host {
+			t.Fatalf("get duration on stats fail")
+		}
+		done = true
+	}
+	ds.LookupWithCache(host)
+	if !done {
+		t.Fatalf("get duration on stats fail")
+	}
+
+}
+
 func TestGetDialContext(t *testing.T) {
 	ds := New(60)
 	http.DefaultClient.Transport = &http.Transport{

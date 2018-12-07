@@ -16,6 +16,16 @@ create a dns cache instance
 ds := dnscache.New(60)
 ```
 
+### OnStats
+
+```go
+ds := dnscache.New(60)
+ds.OnStats = func(h string, d time.Duration, _ *net.IPAddr) {
+  fmt.Println(d)
+}
+ds.LookupWithCache("www.baidu.com")
+```
+
 ### Lookup
 
 lookup ip address for host
