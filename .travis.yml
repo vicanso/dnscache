@@ -1,0 +1,8 @@
+language: go
+sudo: required
+
+go:
+  - 1.x
+
+script:
+  - make test
