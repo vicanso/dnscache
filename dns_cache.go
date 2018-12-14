@@ -60,9 +60,8 @@ func (ds *DNSCache) Lookup(host string) (ipAddr *net.IPAddr, err error) {
 
 // LookupWithCache lookup with cache
 func (ds *DNSCache) LookupWithCache(host string) (ipAddr *net.IPAddr, err error) {
-	v, ok := ds.Caches.Load(host)
-	if ok && v != nil {
-		ipCache := v.(*IPCache)
+	ipCache := ds.Get(host)
+	if ipCache != nil {
 		ipAddr = ipCache.IPAddr
 		createdAt := ipCache.CreatedAt
 		// 如果创建时间小于0，表示永久有效
@@ -79,15 +78,15 @@ func (ds *DNSCache) LookupWithCache(host string) (ipAddr *net.IPAddr, err error)
 	if err != nil {
 		return
 	}
-	ds.Caches.Store(host, &IPCache{
+	ds.Set(host, &IPCache{
 		IPAddr:    ipAddr,
 		CreatedAt: time.Now().Unix(),
 	})
 	return
 }
 
-// Add add ip cache
-func (ds *DNSCache) Add(host string, ipCache *IPCache) {
+// Set set ip cache
+func (ds *DNSCache) Set(host string, ipCache *IPCache) {
 	ds.Caches.Store(host, ipCache)
 }
 

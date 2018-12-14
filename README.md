@@ -59,3 +59,33 @@ http.DefaultClient.Transport = &http.Transport{
 }
 resp, err := http.Get("https://www.baidu.com/")
 ```
+
+### Set
+
+set the dns cache, if the `CreatedAt` is less than 0, it will never be expired.
+
+```go
+ds := New(60)
+ds.Set("www.baidu.com", &IPCache{
+  CreatedAt: time.Now().Unix(),
+  IPAddr: &net.IPAddr{
+    IP: net.IPv4(1, 1, 1, 1),
+  },
+})
+```
+
+### Get
+
+get the dns cache
+
+```go
+ds := New(60)
+host := "www.baidu.com"
+ds.Set(host, &IPCache{
+  CreatedAt: time.Now().Unix(),
+  IPAddr: &net.IPAddr{
+    IP: net.IPv4(1, 1, 1, 1),
+  },
+})
+cache := ds.Get(host)
+```

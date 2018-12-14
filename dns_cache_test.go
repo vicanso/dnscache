@@ -48,7 +48,6 @@ func TestOnStats(t *testing.T) {
 	if !done {
 		t.Fatalf("get duration on stats fail")
 	}
-
 }
 
 func TestGetDialContext(t *testing.T) {
@@ -65,10 +64,10 @@ func TestGetDialContext(t *testing.T) {
 	}
 }
 
-func TestAddCache(t *testing.T) {
+func TestSetCache(t *testing.T) {
 	ds := New(60)
 	host := "www.baidu.com"
-	ds.Add(host, &IPCache{
+	ds.Set(host, &IPCache{
 		CreatedAt: time.Now().Unix(),
 		IPAddr: &net.IPAddr{
 			IP: net.IPv4(1, 1, 1, 1),
