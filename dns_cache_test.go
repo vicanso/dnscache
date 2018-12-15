@@ -53,6 +53,7 @@ func TestOnStats(t *testing.T) {
 
 func TestGetDialContext(t *testing.T) {
 	ds := New(60)
+	ds.Dialer = &net.Dialer{}
 	http.DefaultClient.Transport = &http.Transport{
 		DialContext: ds.GetDialContext(),
 	}

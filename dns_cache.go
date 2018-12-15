@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+var (
+	defaultDialer = &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
+)
+
 type (
 	// OnStats onstats function
 	OnStats func(host string, d time.Duration, ipAddr *net.IPAddr)
@@ -16,6 +24,7 @@ type (
 		Caches  *sync.Map
 		TTL     int64
 		OnStats OnStats
+		Dialer  *net.Dialer
 	}
 	// IPCache ip cache
 	IPCache struct {
@@ -35,6 +44,10 @@ func New(ttl int64) *DNSCache {
 // GetDialContext get dial context function
 func (ds *DNSCache) GetDialContext() func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialer := defaultDialer
+		if ds.Dialer != nil {
+			dialer = ds.Dialer
+		}
 		sepIndex := strings.LastIndex(addr, ":")
 		host := addr[:sepIndex]
 		ipAddr, err := ds.LookupWithCache(host)
@@ -42,7 +55,6 @@ func (ds *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 			return nil, err
 		}
 		addr = ipAddr.String() + addr[sepIndex:]
-		dialer := &net.Dialer{}
 		return dialer.DialContext(ctx, network, addr)
 	}
 }
