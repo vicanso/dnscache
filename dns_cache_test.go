@@ -1,6 +1,7 @@
 package dnscache
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"testing"
@@ -86,5 +87,22 @@ func TestSetCache(t *testing.T) {
 	ds.Remove(host)
 	if ds.Get(host) != nil {
 		t.Fatalf("remove cache fail")
+	}
+}
+
+func BenchmarkLookupWithCache(b *testing.B) {
+	ds := New(60)
+	ds.LookupWithCache("www.baidu.com")
+	for i := 0; i < b.N; i++ {
+		ds.LookupWithCache("www.baidu.com")
+	}
+}
+
+func BenchmarkDial(b *testing.B) {
+	ds := New(60)
+	fn := ds.GetDialContext()
+	for i := 0; i < b.N; i++ {
+		ctx := context.Background()
+		fn(ctx, "tcp", "www.baidu.com:443")
 	}
 }
