@@ -45,7 +45,10 @@ func TestOnStats(t *testing.T) {
 		}
 		done = true
 	}
-	ds.LookupWithCache(host)
+	_, err := ds.LookupWithCache(host)
+	if err != nil {
+		t.Fatalf("dns look up fail, %v", err)
+	}
 	if !done {
 		t.Fatalf("get duration on stats fail")
 	}
@@ -93,9 +96,9 @@ func TestSetCache(t *testing.T) {
 
 func BenchmarkLookupWithCache(b *testing.B) {
 	ds := New(60)
-	ds.LookupWithCache("www.baidu.com")
+	_, _ = ds.LookupWithCache("www.baidu.com")
 	for i := 0; i < b.N; i++ {
-		ds.LookupWithCache("www.baidu.com")
+		_, _ = ds.LookupWithCache("www.baidu.com")
 	}
 }
 
@@ -104,6 +107,6 @@ func BenchmarkDial(b *testing.B) {
 	fn := ds.GetDialContext()
 	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
-		fn(ctx, "tcp", "www.baidu.com:443")
+		_, _ = fn(ctx, "tcp", "www.baidu.com:443")
 	}
 }

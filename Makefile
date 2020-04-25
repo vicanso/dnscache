@@ -2,6 +2,8 @@
 
 defalt: dev
 
+lint:
+	golangci-lint run
 
 # for test
 test:
