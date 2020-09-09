@@ -21,7 +21,7 @@ type (
 	OnStats func(host string, d time.Duration, ipAddr *net.IPAddr)
 	// DNSCache dns cache
 	DNSCache struct {
-		Caches  *sync.Map
+		Caches  sync.Map
 		TTL     int64
 		OnStats OnStats
 		Dialer  *net.Dialer
@@ -37,11 +37,11 @@ type (
 func New(ttl int64) *DNSCache {
 	return &DNSCache{
 		TTL:    ttl,
-		Caches: new(sync.Map),
+		Caches: sync.Map{},
 	}
 }
 
-// GetDialContext get dial context function
+// GetDialContext get dial context function with cache
 func (ds *DNSCache) GetDialContext() func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		dialer := defaultDialer
