@@ -13,17 +13,17 @@ create a dns cache instance
 - `ttl` cache's ttl seconds
 
 ```go
-ds := dnscache.New(60)
+dc := dnscache.New(time.Minute)
 ```
 
 ### OnStats
 
 ```go
-ds := dnscache.New(60)
-ds.OnStats = func(h string, d time.Duration, _ *net.IPAddr) {
+dc := dnscache.New(time.Minute)
+dc.OnStats = func(h string, d time.Duration, _ *net.IPAddr) {
   fmt.Println(d)
 }
-ds.LookupWithCache("www.baidu.com")
+dc.LookupWithCache("www.baidu.com")
 ```
 
 ### Lookup
@@ -33,8 +33,8 @@ lookup ip address for host
 - `host` host name
 
 ```go
-ds := dnscache.New(60)
-ipAddr, err := ds.Lookup("www.baidu.com")
+dc := dnscache.New(time.Minute)
+ipAddr, err := dc.Lookup("www.baidu.com")
 ```
 
 ### LookupWithCache
@@ -44,8 +44,8 @@ lookup ip address for host, it will use the cache first.
 - `host` host name
 
 ```go
-ds := dnscache.New(60)
-ipAddr, err := ds.LookupWithCache("www.baidu.com")
+dc := dnscache.New(time.Minute)
+ipAddr, err := dc.LookupWithCache("www.baidu.com")
 ```
 
 ### GetDialContext
@@ -53,9 +53,9 @@ ipAddr, err := ds.LookupWithCache("www.baidu.com")
 get dial context function for http client
 
 ```go
-ds := New(60)
+dc := dnscache.New(time.Minute)
 http.DefaultClient.Transport = &http.Transport{
-  DialContext: ds.GetDialContext(),
+  DialContext: dc.GetDialContext(),
 }
 resp, err := http.Get("https://www.baidu.com/")
 ```
@@ -65,8 +65,8 @@ resp, err := http.Get("https://www.baidu.com/")
 set the dns cache, if the `CreatedAt` is less than 0, it will never be expired.
 
 ```go
-ds := New(60)
-ds.Set("www.baidu.com", &IPCache{
+dc := dnscache.New(time.Minute)
+dc.Set("www.baidu.com", &IPCache{
   CreatedAt: time.Now().Unix(),
   IPAddr: &net.IPAddr{
     IP: net.IPv4(1, 1, 1, 1),
@@ -79,13 +79,13 @@ ds.Set("www.baidu.com", &IPCache{
 get the dns cache
 
 ```go
-ds := New(60)
+dc := dnscache.New(time.Minute)
 host := "www.baidu.com"
-ds.Set(host, &IPCache{
+dc.Set(host, &IPCache{
   CreatedAt: time.Now().Unix(),
   IPAddr: &net.IPAddr{
     IP: net.IPv4(1, 1, 1, 1),
   },
 })
-cache := ds.Get(host)
+cache := dc.Get(host)
 ```
