@@ -1,6 +1,6 @@
 # DNS Cache
 
-[![Build Status](https://travis-ci.org/vicanso/dnscache.svg?branch=master)](https://travis-ci.org/vicanso/dnscache)
+[![Build Status](https://github.com/vicanso/dnscache/workflows/Test/badge.svg)](https://github.com/vicanso/dnscache/actions)
 
 DNS Cache for http client
 

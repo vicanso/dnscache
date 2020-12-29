@@ -21,7 +21,7 @@ type (
 	OnStats func(host string, d time.Duration, ipAddr *net.IPAddr)
 	// DNSCache dns cache
 	DNSCache struct {
-		Caches  sync.Map
+		Caches  *sync.Map
 		TTL     time.Duration
 		OnStats OnStats
 		Dialer  *net.Dialer
@@ -37,7 +37,7 @@ type (
 func New(ttl time.Duration) *DNSCache {
 	return &DNSCache{
 		TTL:    ttl,
-		Caches: sync.Map{},
+		Caches: &sync.Map{},
 	}
 }
 
