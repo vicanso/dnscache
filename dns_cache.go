@@ -63,8 +63,9 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 func (dc *DNSCache) Lookup(host string) (ipAddr *net.IPAddr, err error) {
 	start := time.Now()
 	ipAddr, err = net.ResolveIPAddr("", host)
-	d := time.Since(start)
-	if dc.OnStats != nil {
+	// 成功则回调
+	if ipAddr != nil && dc.OnStats != nil {
+		d := time.Since(start)
 		dc.OnStats(host, d, ipAddr)
 	}
 	return
