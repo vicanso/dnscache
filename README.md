@@ -20,7 +20,7 @@ dc := dnscache.New(time.Minute)
 
 ```go
 dc := dnscache.New(time.Minute)
-dc.OnStats = func(h string, d time.Duration, _ *net.IPAddr) {
+dc.OnStats = func(h string, d time.Duration, _ net.IPAddr) {
   fmt.Println(d)
 }
 dc.LookupWithCache("www.baidu.com")
@@ -66,9 +66,9 @@ set the dns cache, if the `CreatedAt` is less than 0, it will never be expired.
 
 ```go
 dc := dnscache.New(time.Minute)
-dc.Set("www.baidu.com", &IPCache{
+dc.Set("www.baidu.com", IPCache{
   CreatedAt: time.Now().Unix(),
-  IPAddr: &net.IPAddr{
+  IPAddr: net.IPAddr{
     IP: net.IPv4(1, 1, 1, 1),
   },
 })
@@ -81,9 +81,9 @@ get the dns cache
 ```go
 dc := dnscache.New(time.Minute)
 host := "www.baidu.com"
-dc.Set(host, &IPCache{
+dc.Set(host, IPCache{
   CreatedAt: time.Now().Unix(),
-  IPAddr: &net.IPAddr{
+  IPAddr: net.IPAddr{
     IP: net.IPv4(1, 1, 1, 1),
   },
 })

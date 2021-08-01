@@ -35,7 +35,7 @@ func TestOnStats(t *testing.T) {
 	dc := New(time.Minute)
 	host := "www.baidu.com"
 	done := false
-	dc.OnStats = func(h string, d time.Duration, _ *net.IPAddr) {
+	dc.OnStats = func(h string, d time.Duration, _ net.IPAddr) {
 		assert.NotEmpty(d.Nanoseconds())
 		assert.Equal(host, h)
 		done = true
@@ -61,18 +61,20 @@ func TestSetCache(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(time.Minute)
 	host := "www.baidu.com"
-	dc.Set(host, &IPCache{
+	dc.Set(host, IPCache{
 		CreatedAt: time.Now(),
-		IPAddr: &net.IPAddr{
+		IPAddr: net.IPAddr{
 			IP: net.IPv4(1, 1, 1, 1),
 		},
 	})
 	ipAddr, err := dc.LookupWithCache(host)
 	assert.Nil(err)
 	assert.Equal("1.1.1.1", ipAddr.String())
-	assert.NotNil(dc.Get(host))
+	_, ok := dc.Get(host)
+	assert.True(ok)
 	dc.Remove(host)
-	assert.Nil(dc.Get(host))
+	_, ok = dc.Get(host)
+	assert.False(ok)
 }
 
 func BenchmarkLookupWithCache(b *testing.B) {

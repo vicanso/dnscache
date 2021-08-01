@@ -2,6 +2,7 @@ package dnscache
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"sync"
@@ -15,9 +16,11 @@ var (
 	}
 )
 
+var ErrNotFound = errors.New("Not Found")
+
 type (
 	// OnStats on stats function
-	OnStats func(host string, d time.Duration, ipAddr *net.IPAddr)
+	OnStats func(host string, d time.Duration, ipAddr net.IPAddr)
 	// DNSCache dns cache
 	DNSCache struct {
 		Caches  *sync.Map
@@ -27,7 +30,7 @@ type (
 	}
 	// IPCache ip cache
 	IPCache struct {
-		IPAddr    *net.IPAddr
+		IPAddr    net.IPAddr
 		CreatedAt time.Time
 	}
 )
@@ -59,20 +62,26 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 }
 
 // Lookup lookup
-func (dc *DNSCache) Lookup(host string) (*net.IPAddr, error) {
+func (dc *DNSCache) Lookup(host string) (net.IPAddr, error) {
 	start := time.Now()
 	ipAddr, err := net.ResolveIPAddr("", host)
-	// 成功则回调
-	if ipAddr != nil && dc.OnStats != nil {
-		d := time.Since(start)
-		dc.OnStats(host, d, ipAddr)
+	if err != nil {
+		return net.IPAddr{}, err
 	}
-	return ipAddr, err
+	if ipAddr == nil {
+		return net.IPAddr{}, ErrNotFound
+	}
+	// 成功则回调
+	if dc.OnStats != nil {
+		d := time.Since(start)
+		dc.OnStats(host, d, *ipAddr)
+	}
+	return *ipAddr, nil
 }
 
 // LookupWithCache lookup with cache
-func (dc *DNSCache) LookupWithCache(host string) (*net.IPAddr, error) {
-	ipCache, _ := dc.Get(host)
+func (dc *DNSCache) LookupWithCache(host string) (net.IPAddr, error) {
+	ipCache, _ := dc.get(host)
 	if ipCache != nil {
 		ipAddr := ipCache.IPAddr
 		createdAt := ipCache.CreatedAt
@@ -84,31 +93,39 @@ func (dc *DNSCache) LookupWithCache(host string) (*net.IPAddr, error) {
 	}
 	ipAddr, err := dc.Lookup(host)
 	if err != nil {
-		return nil, err
+		return net.IPAddr{}, err
 	}
-	dc.Set(host, &IPCache{
+	dc.Set(host, IPCache{
 		IPAddr:    ipAddr,
 		CreatedAt: time.Now(),
 	})
-	return ipAddr, err
+	return ipAddr, nil
 }
 
-// Set set ip cache
-func (dc *DNSCache) Set(host string, ipCache *IPCache) {
-	dc.Caches.Store(host, ipCache)
+// Sets ip cache for the host
+func (dc *DNSCache) Set(host string, ipCache IPCache) {
+	dc.Caches.Store(host, &ipCache)
 }
 
-// Remove remove cache
+// Removes cache of host
 func (dc *DNSCache) Remove(host string) {
 	dc.Caches.Delete(host)
 }
 
-// Get get ip cache
-func (dc *DNSCache) Get(host string) (*IPCache, bool) {
+func (dc *DNSCache) get(host string) (*IPCache, bool) {
 	v, _ := dc.Caches.Load(host)
 	if v == nil {
 		return nil, false
 	}
 	c, ok := v.(*IPCache)
 	return c, ok
+}
+
+// Gets ip cache of host
+func (dc *DNSCache) Get(host string) (IPCache, bool) {
+	c, ok := dc.get(host)
+	if !ok {
+		return IPCache{}, false
+	}
+	return *c, true
 }
