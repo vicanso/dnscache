@@ -87,5 +87,5 @@ dc.Set(host, &IPCache{
     IP: net.IPv4(1, 1, 1, 1),
   },
 })
-cache := dc.Get(host)
+cache, ok := dc.Get(host)
 ```

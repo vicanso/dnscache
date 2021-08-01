@@ -12,7 +12,6 @@ var (
 	defaultDialer = &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-		DualStack: true,
 	}
 )
 
@@ -60,41 +59,38 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 }
 
 // Lookup lookup
-func (dc *DNSCache) Lookup(host string) (ipAddr *net.IPAddr, err error) {
+func (dc *DNSCache) Lookup(host string) (*net.IPAddr, error) {
 	start := time.Now()
-	ipAddr, err = net.ResolveIPAddr("", host)
+	ipAddr, err := net.ResolveIPAddr("", host)
 	// 成功则回调
 	if ipAddr != nil && dc.OnStats != nil {
 		d := time.Since(start)
 		dc.OnStats(host, d, ipAddr)
 	}
-	return
+	return ipAddr, err
 }
 
 // LookupWithCache lookup with cache
-func (dc *DNSCache) LookupWithCache(host string) (ipAddr *net.IPAddr, err error) {
-	ipCache := dc.Get(host)
+func (dc *DNSCache) LookupWithCache(host string) (*net.IPAddr, error) {
+	ipCache, _ := dc.Get(host)
 	if ipCache != nil {
-		ipAddr = ipCache.IPAddr
+		ipAddr := ipCache.IPAddr
 		createdAt := ipCache.CreatedAt
 		// 如果创建时间小于0，表示永久有效
-		if createdAt.IsZero() {
-			return
-		}
 		// 如果在有效期内，直接返回
-		if createdAt.Add(dc.TTL).After(time.Now()) {
-			return
+		if createdAt.IsZero() || createdAt.Add(dc.TTL).After(time.Now()) {
+			return ipAddr, nil
 		}
 	}
-	ipAddr, err = dc.Lookup(host)
+	ipAddr, err := dc.Lookup(host)
 	if err != nil {
-		return
+		return nil, err
 	}
 	dc.Set(host, &IPCache{
 		IPAddr:    ipAddr,
 		CreatedAt: time.Now(),
 	})
-	return
+	return ipAddr, err
 }
 
 // Set set ip cache
@@ -108,10 +104,11 @@ func (dc *DNSCache) Remove(host string) {
 }
 
 // Get get ip cache
-func (dc *DNSCache) Get(host string) *IPCache {
+func (dc *DNSCache) Get(host string) (*IPCache, bool) {
 	v, _ := dc.Caches.Load(host)
 	if v == nil {
-		return nil
+		return nil, false
 	}
-	return v.(*IPCache)
+	c, ok := v.(*IPCache)
+	return c, ok
 }
