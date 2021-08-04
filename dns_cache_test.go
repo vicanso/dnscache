@@ -14,7 +14,7 @@ func TestLookup(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(0)
 	dc.Policy = PolicyRandom
-	ipAddr, err := dc.Lookup("www.baidu.com")
+	ipAddr, err := dc.Lookup("www.bing.com")
 	assert.Nil(err)
 	assert.NotEmpty(ipAddr)
 }
@@ -22,7 +22,7 @@ func TestLookup(t *testing.T) {
 func TestLookupWithCache(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(time.Minute)
-	host := "www.baidu.com"
+	host := "www.bing.com"
 	ipAddr, err := dc.LookupWithCache(host)
 	assert.Nil(err)
 	assert.NotEmpty(ipAddr)
