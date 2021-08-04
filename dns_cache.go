@@ -3,6 +3,7 @@ package dnscache
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -16,21 +17,27 @@ var (
 	}
 )
 
+const (
+	PolicyFirst = iota
+	PolicyRandom
+)
+
 var ErrNotFound = errors.New("Not Found")
 
 type (
 	// OnStats on stats function
-	OnStats func(host string, d time.Duration, ipAddr net.IPAddr)
+	OnStats func(host string, d time.Duration, ipAddrs []string)
 	// DNSCache dns cache
 	DNSCache struct {
 		Caches  *sync.Map
 		TTL     time.Duration
 		OnStats OnStats
 		Dialer  *net.Dialer
+		Policy  int
 	}
 	// IPCache ip cache
 	IPCache struct {
-		IPAddr    net.IPAddr
+		IPAddrs   []string
 		CreatedAt time.Time
 	}
 )
@@ -52,54 +59,69 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 		}
 		sepIndex := strings.LastIndex(addr, ":")
 		host := addr[:sepIndex]
-		ipAddr, err := dc.LookupWithCache(host)
+		ipAddrs, err := dc.LookupWithCache(host)
 		if err != nil {
 			return nil, err
 		}
-		addr = ipAddr.String() + addr[sepIndex:]
+		if len(ipAddrs) == 0 {
+			return nil, ErrNotFound
+		}
+		index := 0
+		if dc.Policy == PolicyRandom {
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+			index = r.Int() % len(ipAddrs)
+		}
+		// 选择第一个解析IP，后续再看是否增加更多的处理
+		addr = ipAddrs[index] + addr[sepIndex:]
 		return dialer.DialContext(ctx, network, addr)
 	}
 }
 
 // Lookup lookup
-func (dc *DNSCache) Lookup(host string) (net.IPAddr, error) {
+func (dc *DNSCache) Lookup(host string) ([]string, error) {
 	start := time.Now()
-	ipAddr, err := net.ResolveIPAddr("", host)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	result, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
-		return net.IPAddr{}, err
+		return nil, err
 	}
-	if ipAddr == nil {
-		return net.IPAddr{}, ErrNotFound
+	if len(result) == 0 {
+		return nil, ErrNotFound
+	}
+	ipAddrs := make([]string, len(result))
+	for index, item := range result {
+		ipAddrs[index] = item.String()
 	}
 	// 成功则回调
 	if dc.OnStats != nil {
 		d := time.Since(start)
-		dc.OnStats(host, d, *ipAddr)
+		dc.OnStats(host, d, ipAddrs)
 	}
-	return *ipAddr, nil
+	return ipAddrs, nil
 }
 
 // LookupWithCache lookup with cache
-func (dc *DNSCache) LookupWithCache(host string) (net.IPAddr, error) {
+func (dc *DNSCache) LookupWithCache(host string) ([]string, error) {
 	ipCache, _ := dc.get(host)
 	if ipCache != nil {
-		ipAddr := ipCache.IPAddr
+		ipAddrs := ipCache.IPAddrs
 		createdAt := ipCache.CreatedAt
 		// 如果创建时间小于0，表示永久有效
 		// 如果在有效期内，直接返回
 		if createdAt.IsZero() || createdAt.Add(dc.TTL).After(time.Now()) {
-			return ipAddr, nil
+			return ipAddrs, nil
 		}
 	}
-	ipAddr, err := dc.Lookup(host)
+	ipAddrs, err := dc.Lookup(host)
 	if err != nil {
-		return net.IPAddr{}, err
+		return nil, err
 	}
 	dc.Set(host, IPCache{
-		IPAddr:    ipAddr,
+		IPAddrs:   ipAddrs,
 		CreatedAt: time.Now(),
 	})
-	return ipAddr, nil
+	return ipAddrs, nil
 }
 
 // Sets ip cache for the host

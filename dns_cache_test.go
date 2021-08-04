@@ -13,9 +13,10 @@ import (
 func TestLookup(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(0)
+	dc.Policy = PolicyRandom
 	ipAddr, err := dc.Lookup("www.baidu.com")
 	assert.Nil(err)
-	assert.NotEmpty(ipAddr.String())
+	assert.NotEmpty(ipAddr)
 }
 
 func TestLookupWithCache(t *testing.T) {
@@ -24,7 +25,7 @@ func TestLookupWithCache(t *testing.T) {
 	host := "www.baidu.com"
 	ipAddr, err := dc.LookupWithCache(host)
 	assert.Nil(err)
-	assert.NotEmpty(ipAddr.String())
+	assert.NotEmpty(ipAddr)
 
 	_, err = dc.LookupWithCache(host)
 	assert.Nil(err)
@@ -35,7 +36,7 @@ func TestOnStats(t *testing.T) {
 	dc := New(time.Minute)
 	host := "www.baidu.com"
 	done := false
-	dc.OnStats = func(h string, d time.Duration, _ net.IPAddr) {
+	dc.OnStats = func(h string, d time.Duration, _ []string) {
 		assert.NotEmpty(d.Nanoseconds())
 		assert.Equal(host, h)
 		done = true
@@ -63,13 +64,13 @@ func TestSetCache(t *testing.T) {
 	host := "www.baidu.com"
 	dc.Set(host, IPCache{
 		CreatedAt: time.Now(),
-		IPAddr: net.IPAddr{
-			IP: net.IPv4(1, 1, 1, 1),
+		IPAddrs: []string{
+			"1.1.1.1",
 		},
 	})
-	ipAddr, err := dc.LookupWithCache(host)
+	ipAddrs, err := dc.LookupWithCache(host)
 	assert.Nil(err)
-	assert.Equal("1.1.1.1", ipAddr.String())
+	assert.Equal([]string{"1.1.1.1"}, ipAddrs)
 	_, ok := dc.Get(host)
 	assert.True(ok)
 	dc.Remove(host)
