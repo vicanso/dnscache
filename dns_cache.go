@@ -29,11 +29,12 @@ type (
 	OnStats func(host string, d time.Duration, ipAddrs []string)
 	// DNSCache dns cache
 	DNSCache struct {
-		Caches  *sync.Map
-		TTL     time.Duration
-		OnStats OnStats
-		Dialer  *net.Dialer
-		Policy  int
+		Caches   *sync.Map
+		TTL      time.Duration
+		OnStats  OnStats
+		Dialer   *net.Dialer
+		Resolver *net.Resolver
+		Policy   int
 	}
 	// IPCache ip cache
 	IPCache struct {
@@ -82,7 +83,11 @@ func (dc *DNSCache) Lookup(host string) ([]string, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	result, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	resolver := dc.Resolver
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
+	result, err := resolver.LookupIPAddr(ctx, host)
 	if err != nil {
 		return nil, err
 	}
