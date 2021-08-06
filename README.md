@@ -20,7 +20,7 @@ dc := dnscache.New(time.Minute)
 
 ```go
 dc := dnscache.New(time.Minute)
-dc.OnStats = func(h string, d time.Duration, _ net.IPAddr) {
+dc.OnStats = func(h string, d time.Duration, _ []string) {
   fmt.Println(d)
 }
 dc.LookupWithCache("www.baidu.com")
@@ -34,7 +34,7 @@ lookup ip address for host
 
 ```go
 dc := dnscache.New(time.Minute)
-ipAddr, err := dc.Lookup("www.baidu.com")
+ipAddrs, err := dc.Lookup("www.baidu.com")
 ```
 
 ### LookupWithCache
@@ -45,7 +45,7 @@ lookup ip address for host, it will use the cache first.
 
 ```go
 dc := dnscache.New(time.Minute)
-ipAddr, err := dc.LookupWithCache("www.baidu.com")
+ipAddrs, err := dc.LookupWithCache("www.baidu.com")
 ```
 
 ### GetDialContext
@@ -68,8 +68,8 @@ set the dns cache, if the `CreatedAt` is less than 0, it will never be expired.
 dc := dnscache.New(time.Minute)
 dc.Set("www.baidu.com", IPCache{
   CreatedAt: time.Now().Unix(),
-  IPAddr: net.IPAddr{
-    IP: net.IPv4(1, 1, 1, 1),
+  IPAddrs: []string{
+    "1.1.1.1",
   },
 })
 ```
@@ -83,8 +83,8 @@ dc := dnscache.New(time.Minute)
 host := "www.baidu.com"
 dc.Set(host, IPCache{
   CreatedAt: time.Now().Unix(),
-  IPAddr: net.IPAddr{
-    IP: net.IPv4(1, 1, 1, 1),
+  IPAddrs: []string{
+    "1.1.1.1",
   },
 })
 cache, ok := dc.Get(host)
