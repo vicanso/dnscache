@@ -60,7 +60,7 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 		}
 		sepIndex := strings.LastIndex(addr, ":")
 		host := addr[:sepIndex]
-		ipAddrs, err := dc.LookupWithCache(host)
+		ipAddrs, err := dc.LookupWithCache(ctx, host)
 		if err != nil {
 			return nil, err
 		}
@@ -79,9 +79,9 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 }
 
 // Lookup lookup
-func (dc *DNSCache) Lookup(host string) ([]string, error) {
+func (dc *DNSCache) Lookup(ctx context.Context, host string) ([]string, error) {
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	resolver := dc.Resolver
 	if resolver == nil {
@@ -107,7 +107,7 @@ func (dc *DNSCache) Lookup(host string) ([]string, error) {
 }
 
 // LookupWithCache lookup with cache
-func (dc *DNSCache) LookupWithCache(host string) ([]string, error) {
+func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]string, error) {
 	ipCache, _ := dc.get(host)
 	if ipCache != nil {
 		ipAddrs := ipCache.IPAddrs
@@ -118,7 +118,7 @@ func (dc *DNSCache) LookupWithCache(host string) ([]string, error) {
 			return ipAddrs, nil
 		}
 	}
-	ipAddrs, err := dc.Lookup(host)
+	ipAddrs, err := dc.Lookup(ctx, host)
 	if err != nil {
 		return nil, err
 	}

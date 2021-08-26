@@ -14,7 +14,7 @@ func TestLookup(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(0)
 	dc.Policy = PolicyRandom
-	ipAddr, err := dc.Lookup("www.bing.com")
+	ipAddr, err := dc.Lookup(context.Background(), "www.bing.com")
 	assert.Nil(err)
 	assert.NotEmpty(ipAddr)
 }
@@ -23,11 +23,11 @@ func TestLookupWithCache(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(time.Minute)
 	host := "www.bing.com"
-	ipAddr, err := dc.LookupWithCache(host)
+	ipAddr, err := dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
 	assert.NotEmpty(ipAddr)
 
-	_, err = dc.LookupWithCache(host)
+	_, err = dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
 }
 
@@ -41,7 +41,7 @@ func TestOnStats(t *testing.T) {
 		assert.Equal(host, h)
 		done = true
 	}
-	_, err := dc.LookupWithCache(host)
+	_, err := dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
 	assert.True(done)
 }
@@ -50,6 +50,7 @@ func TestGetDialContext(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(time.Minute)
 	dc.Dialer = &net.Dialer{}
+	dc.Policy = PolicyRandom
 	http.DefaultClient.Transport = &http.Transport{
 		DialContext: dc.GetDialContext(),
 	}
@@ -68,7 +69,7 @@ func TestSetCache(t *testing.T) {
 			"1.1.1.1",
 		},
 	})
-	ipAddrs, err := dc.LookupWithCache(host)
+	ipAddrs, err := dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
 	assert.Equal([]string{"1.1.1.1"}, ipAddrs)
 	_, ok := dc.Get(host)
@@ -80,9 +81,9 @@ func TestSetCache(t *testing.T) {
 
 func BenchmarkLookupWithCache(b *testing.B) {
 	dc := New(time.Minute)
-	_, _ = dc.LookupWithCache("www.baidu.com")
+	_, _ = dc.LookupWithCache(context.Background(), "www.baidu.com")
 	for i := 0; i < b.N; i++ {
-		_, _ = dc.LookupWithCache("www.baidu.com")
+		_, _ = dc.LookupWithCache(context.Background(), "www.baidu.com")
 	}
 }
 
