@@ -34,7 +34,7 @@ lookup ip address for host
 
 ```go
 dc := dnscache.New(time.Minute)
-ipAddrs, err := dc.Lookup("www.baidu.com")
+ipAddrs, err := dc.Lookup(context.Background(), "www.baidu.com")
 ```
 
 ### LookupWithCache
@@ -45,7 +45,7 @@ lookup ip address for host, it will use the cache first.
 
 ```go
 dc := dnscache.New(time.Minute)
-ipAddrs, err := dc.LookupWithCache("www.baidu.com")
+ipAddrs, err := dc.LookupWithCache(context.Background(), "www.baidu.com")
 ```
 
 ### GetDialContext
