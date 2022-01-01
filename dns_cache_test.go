@@ -2,6 +2,7 @@ package dnscache
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -10,6 +11,29 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestNewDNSCache(t *testing.T) {
+	assert := assert.New(t)
+
+	dialer := &net.Dialer{}
+	resolver := &net.Resolver{}
+	onStats := func(host string, d time.Duration, ipAddrs []string) {
+		fmt.Println(host)
+	}
+	dc := New(
+		time.Minute,
+		PolicyOption(PolicyRandom),
+		StaleOption(time.Second),
+		DialerOption(dialer),
+		ResolverOption(resolver),
+		OnStatsOption(onStats),
+	)
+	assert.Equal(time.Minute, dc.TTL)
+	assert.Equal(PolicyRandom, dc.Policy)
+	assert.Equal(time.Second, dc.Stale)
+	assert.Equal(dialer, dc.Dialer)
+	assert.Equal(resolver, dc.Resolver)
+}
 
 func TestLookup(t *testing.T) {
 	assert := assert.New(t)

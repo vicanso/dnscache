@@ -43,13 +43,53 @@ type (
 		IPAddrs   []string
 		CreatedAt time.Time
 	}
+	DNSCacheOption func(*DNSCache)
 )
 
 // New create a dns cache instance
-func New(ttl time.Duration) *DNSCache {
-	return &DNSCache{
+func New(ttl time.Duration, opts ...DNSCacheOption) *DNSCache {
+	ds := &DNSCache{
 		TTL:    ttl,
 		Caches: &sync.Map{},
+	}
+	for _, opt := range opts {
+		opt(ds)
+	}
+	return ds
+}
+
+// PolicyOption sets policy
+func PolicyOption(policy int) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.Policy = policy
+	}
+}
+
+// StaleOption sets stale
+func StaleOption(stale time.Duration) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.Stale = stale
+	}
+}
+
+// DialerOption sets dialer
+func DialerOption(dialer *net.Dialer) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.Dialer = dialer
+	}
+}
+
+// ResolverOption sets resolver
+func ResolverOption(resolver *net.Resolver) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.Resolver = resolver
+	}
+}
+
+// OnStatsOption sets on stats function
+func OnStatsOption(onStats OnStats) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.OnStats = onStats
 	}
 }
 
