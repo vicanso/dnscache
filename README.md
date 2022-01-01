@@ -13,17 +13,15 @@ create a dns cache instance
 - `ttl` cache's ttl seconds
 
 ```go
-dc := dnscache.New(time.Minute)
-```
-
-### OnStats
-
-```go
-dc := dnscache.New(time.Minute)
-dc.OnStats = func(h string, d time.Duration, _ []string) {
+onStats := func(h string, d time.Duration, _ []string) {
   fmt.Println(d)
 }
-dc.LookupWithCache("www.baidu.com")
+dc := dnscache.New(
+  time.Minute,
+  dnscache.PolicyOption(dnscache.PolicyRandom),
+  dnscache.StaleOption(time.Minute),
+  dnscache.OnStatsOption(onStats),
+)
 ```
 
 ### Lookup
