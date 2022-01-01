@@ -16,6 +16,7 @@ var (
 		KeepAlive: 30 * time.Second,
 	}
 )
+var defaultTimeout = 3 * time.Second
 
 const (
 	PolicyFirst = iota
@@ -31,6 +32,7 @@ type (
 	DNSCache struct {
 		Caches   *sync.Map
 		TTL      time.Duration
+		Stale    time.Duration
 		OnStats  OnStats
 		Dialer   *net.Dialer
 		Resolver *net.Resolver
@@ -81,7 +83,7 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 // Lookup lookup
 func (dc *DNSCache) Lookup(ctx context.Context, host string) ([]string, error) {
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	resolver := dc.Resolver
 	if resolver == nil {
@@ -106,18 +108,7 @@ func (dc *DNSCache) Lookup(ctx context.Context, host string) ([]string, error) {
 	return ipAddrs, nil
 }
 
-// LookupWithCache lookup with cache
-func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]string, error) {
-	ipCache, _ := dc.get(host)
-	if ipCache != nil {
-		ipAddrs := ipCache.IPAddrs
-		createdAt := ipCache.CreatedAt
-		// 如果创建时间小于0，表示永久有效
-		// 如果在有效期内，直接返回
-		if createdAt.IsZero() || createdAt.Add(dc.TTL).After(time.Now()) {
-			return ipAddrs, nil
-		}
-	}
+func (dc *DNSCache) lookupAndUpdate(ctx context.Context, host string) ([]string, error) {
 	ipAddrs, err := dc.Lookup(ctx, host)
 	if err != nil {
 		return nil, err
@@ -127,6 +118,31 @@ func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]string,
 		CreatedAt: time.Now(),
 	})
 	return ipAddrs, nil
+}
+
+// LookupWithCache lookup with cache
+func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]string, error) {
+	ipCache, _ := dc.get(host)
+	if ipCache != nil {
+		ipAddrs := ipCache.IPAddrs
+		createdAt := ipCache.CreatedAt
+		now := time.Now()
+		// 如果创建时间为0，表示永久有效
+		// 如果在有效期内，直接返回
+		if createdAt.IsZero() || createdAt.Add(dc.TTL).After(now) {
+			return ipAddrs, nil
+		}
+		// 如果加上stale时长还未过期，则可以直接返回并更新dns解析
+		if dc.Stale != 0 && createdAt.Add(dc.TTL).Add(dc.Stale).After(now) {
+			// dns本身的更新是singleflight
+			// 因此此处暂不控制并发
+			go func() {
+				_, _ = dc.lookupAndUpdate(context.Background(), host)
+			}()
+			return ipAddrs, nil
+		}
+	}
+	return dc.lookupAndUpdate(ctx, host)
 }
 
 // Sets ip cache for the host

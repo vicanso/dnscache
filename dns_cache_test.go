@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,6 +30,26 @@ func TestLookupWithCache(t *testing.T) {
 
 	_, err = dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
+
+	dc = New(time.Second)
+	count := int32(0)
+
+	dc.OnStats = func(host string, d time.Duration, ipAddrs []string) {
+		atomic.AddInt32(&count, 1)
+	}
+	dc.Stale = 3 * time.Second
+	host = "www.bing.com"
+	ipAddr, err = dc.LookupWithCache(context.Background(), host)
+	assert.Nil(err)
+	assert.NotEmpty(ipAddr)
+	time.Sleep(2 * time.Second)
+	ipAddr1, err := dc.LookupWithCache(context.Background(), host)
+	assert.Nil(err)
+	assert.Equal(ipAddr, ipAddr1)
+	assert.Equal(int32(1), atomic.LoadInt32(&count))
+	// go routine更新后，count变为2
+	time.Sleep(2 * time.Second)
+	assert.Equal(int32(2), atomic.LoadInt32(&count))
 }
 
 func TestOnStats(t *testing.T) {
