@@ -93,6 +93,16 @@ func OnStatsOption(onStats OnStats) DNSCacheOption {
 	}
 }
 
+func isIP(host string) bool {
+	if len(host) < 2 {
+		return false
+	}
+	if host[0] == '[' && host[len(host)-1] == ']' {
+		host = host[1 : len(host)-1]
+	}
+	return len(net.ParseIP(host)) != 0
+}
+
 // GetDialContext get dial context function with cache
 func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -102,6 +112,10 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 		}
 		sepIndex := strings.LastIndex(addr, ":")
 		host := addr[:sepIndex]
+		// 如果已经是ip，直接不解析域名
+		if isIP(host) {
+			return dialer.DialContext(ctx, network, addr)
+		}
 		ipAddrs, err := dc.LookupWithCache(ctx, host)
 		if err != nil {
 			return nil, err
@@ -114,8 +128,13 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 			index = r.Int() % len(ipAddrs)
 		}
+		ip := ipAddrs[index]
+		// IPV6
+		if strings.Contains(ip, ":") {
+			ip = "[" + ip + "]"
+		}
 		// 选择第一个解析IP，后续再看是否增加更多的处理
-		addr = ipAddrs[index] + addr[sepIndex:]
+		addr = ip + addr[sepIndex:]
 		return dialer.DialContext(ctx, network, addr)
 	}
 }
