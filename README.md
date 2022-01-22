@@ -21,6 +21,7 @@ dc := dnscache.New(
   dnscache.PolicyOption(dnscache.PolicyRandom),
   dnscache.StaleOption(time.Minute),
   dnscache.OnStatsOption(onStats),
+  dnscache.NetworkOption(dnscache.NetworkIPV4),
 )
 ```
 
@@ -66,8 +67,8 @@ set the dns cache, if the `CreatedAt` is less than 0, it will never be expired.
 dc := dnscache.New(time.Minute)
 dc.Set("www.baidu.com", IPCache{
   CreatedAt: time.Now().Unix(),
-  IPAddrs: []string{
-    "1.1.1.1",
+  IPAddrs: []net.IP{
+    net.ParseIP("1.1.1.1"),
   },
 })
 ```
@@ -81,8 +82,8 @@ dc := dnscache.New(time.Minute)
 host := "www.baidu.com"
 dc.Set(host, IPCache{
   CreatedAt: time.Now().Unix(),
-  IPAddrs: []string{
-    "1.1.1.1",
+  IPAddrs: []net.IP{
+    net.ParseIP("1.1.1.1"),
   },
 })
 cache, ok := dc.Get(host)

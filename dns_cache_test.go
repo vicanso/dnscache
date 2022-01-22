@@ -17,7 +17,7 @@ func TestNewDNSCache(t *testing.T) {
 
 	dialer := &net.Dialer{}
 	resolver := &net.Resolver{}
-	onStats := func(host string, d time.Duration, ipAddrs []string) {
+	onStats := func(host string, _ time.Duration, _ []string) {
 		fmt.Println(host)
 	}
 	dc := New(
@@ -27,12 +27,71 @@ func TestNewDNSCache(t *testing.T) {
 		DialerOption(dialer),
 		ResolverOption(resolver),
 		OnStatsOption(onStats),
+		NetworkOption(NetworkIP),
 	)
 	assert.Equal(time.Minute, dc.TTL)
 	assert.Equal(PolicyRandom, dc.Policy)
 	assert.Equal(time.Second, dc.Stale)
 	assert.Equal(dialer, dc.Dialer)
 	assert.Equal(resolver, dc.Resolver)
+	assert.Equal(NetworkIP, dc.Network)
+}
+
+func TestFilterIPByLen(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal([]net.IP{
+		net.IPv4(1, 1, 1, 1),
+	}, filterIPByLen([]net.IP{
+		net.IPv4(1, 1, 1, 1),
+	}, 0))
+
+	assert.Equal([]net.IP{
+		net.IPv4(1, 1, 1, 1).To4(),
+		net.IPv4(1, 1, 1, 2).To4(),
+	}, filterIPByLen([]net.IP{
+		net.IPv4(1, 1, 1, 1).To4(),
+		net.IPv4(1, 1, 1, 2),
+	}, net.IPv4len))
+
+	assert.Empty(filterIPByLen([]net.IP{
+		net.IPv4(1, 1, 1, 1).To4(),
+	}, net.IPv6len))
+}
+
+func TestGetIP(t *testing.T) {
+	assert := assert.New(t)
+	dc := New(0)
+
+	ip, err := dc.getIP(context.Background(), "", "127.0.0.1")
+	assert.Nil(err)
+	assert.Equal("127.0.0.1", ip)
+
+	ip, err = dc.getIP(context.Background(), "", "2001:4860:4802:32::a")
+	assert.Nil(err)
+	assert.Equal("2001:4860:4802:32::a", ip)
+
+	ip, err = dc.getIP(context.Background(), "", "[2001:4860:4802:32::a]")
+	assert.Nil(err)
+	assert.Equal("2001:4860:4802:32::a", ip)
+
+	dc.Set("baidu.com", IPCache{
+		IPAddrs: []net.IP{
+			net.IPv4(1, 1, 1, 1).To4(),
+			net.IPv6zero,
+		},
+	})
+	ip, err = dc.getIP(context.Background(), "", "baidu.com")
+	assert.Nil(err)
+	assert.Equal("1.1.1.1", ip)
+
+	ip, err = dc.getIP(context.Background(), "tcp4", "baidu.com")
+	assert.Nil(err)
+	assert.Equal("1.1.1.1", ip)
+
+	ip, err = dc.getIP(context.Background(), "tcp6", "baidu.com")
+	assert.Nil(err)
+	assert.Equal("::", ip)
 }
 
 func TestLookup(t *testing.T) {
@@ -58,7 +117,7 @@ func TestLookupWithCache(t *testing.T) {
 	dc = New(time.Second)
 	count := int32(0)
 
-	dc.OnStats = func(host string, d time.Duration, ipAddrs []string) {
+	dc.OnStats = func(_ string, _ time.Duration, _ []string) {
 		atomic.AddInt32(&count, 1)
 	}
 	dc.Stale = 3 * time.Second
@@ -110,13 +169,13 @@ func TestSetCache(t *testing.T) {
 	host := "www.baidu.com"
 	dc.Set(host, IPCache{
 		CreatedAt: time.Now(),
-		IPAddrs: []string{
-			"1.1.1.1",
+		IPAddrs: []net.IP{
+			net.ParseIP("1.1.1.1"),
 		},
 	})
 	ipAddrs, err := dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
-	assert.Equal([]string{"1.1.1.1"}, ipAddrs)
+	assert.Equal([]net.IP{net.ParseIP("1.1.1.1")}, ipAddrs)
 	_, ok := dc.Get(host)
 	assert.True(ok)
 	dc.Remove(host)

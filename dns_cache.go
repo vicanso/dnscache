@@ -23,6 +23,12 @@ const (
 	PolicyRandom
 )
 
+const (
+	NetworkIP = iota
+	NetworkIPV4
+	NetworkIPV6
+)
+
 var ErrNotFound = errors.New("Not Found")
 
 type (
@@ -37,10 +43,11 @@ type (
 		Dialer   *net.Dialer
 		Resolver *net.Resolver
 		Policy   int
+		Network  int
 	}
 	// IPCache ip cache
 	IPCache struct {
-		IPAddrs   []string
+		IPAddrs   []net.IP
 		CreatedAt time.Time
 	}
 	DNSCacheOption func(*DNSCache)
@@ -86,6 +93,13 @@ func ResolverOption(resolver *net.Resolver) DNSCacheOption {
 	}
 }
 
+// NetworkOption set network option
+func NetworkOption(network int) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.Network = network
+	}
+}
+
 // OnStatsOption sets on stats function
 func OnStatsOption(onStats OnStats) DNSCacheOption {
 	return func(d *DNSCache) {
@@ -93,14 +107,67 @@ func OnStatsOption(onStats OnStats) DNSCacheOption {
 	}
 }
 
-func isIP(host string) bool {
-	if len(host) < 2 {
-		return false
+func filterIPByLen(ipAddrs []net.IP, length int) []net.IP {
+	if length == 0 {
+		return ipAddrs
 	}
+	ipList := make([]net.IP, 0, len(ipAddrs))
+	for _, item := range ipAddrs {
+		if len(item) == length {
+			ipList = append(ipList, item)
+			continue
+		}
+		// 尝试转换为ipv4
+		if length != net.IPv4len {
+			continue
+		}
+		if ip := item.To4(); ip != nil {
+			ipList = append(ipList, ip)
+			continue
+		}
+	}
+	return ipList
+}
+
+func (dc *DNSCache) getIP(ctx context.Context, network, host string) (string, error) {
+	// ipv6的host地址会添加[]
 	if host[0] == '[' && host[len(host)-1] == ']' {
 		host = host[1 : len(host)-1]
 	}
-	return len(net.ParseIP(host)) != 0
+	// 如果已经是ip，直接不解析域名
+	if len(net.ParseIP(host)) != 0 {
+		return host, nil
+	}
+	ipAddrs, err := dc.LookupWithCache(ctx, host)
+	if err != nil {
+		return "", err
+	}
+	ipLength := 0
+
+	switch network {
+	case "tcp4":
+		fallthrough
+	case "udp4":
+		ipLength = net.IPv4len
+	case "tcp6":
+		fallthrough
+	case "udp6":
+		ipLength = net.IPv6len
+	}
+	if ipLength != 0 {
+		ipAddrs = filterIPByLen(ipAddrs, ipLength)
+	}
+
+	if len(ipAddrs) == 0 {
+		return "", ErrNotFound
+	}
+	index := 0
+	if dc.Policy == PolicyRandom {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		index = r.Int() % len(ipAddrs)
+	}
+	ip := ipAddrs[index]
+	return ip.String(), nil
 }
 
 // GetDialContext get dial context function with cache
@@ -112,51 +179,53 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 		}
 		sepIndex := strings.LastIndex(addr, ":")
 		host := addr[:sepIndex]
-		// 如果已经是ip，直接不解析域名
-		if isIP(host) {
-			return dialer.DialContext(ctx, network, addr)
-		}
-		ipAddrs, err := dc.LookupWithCache(ctx, host)
+		ip, err := dc.getIP(ctx, network, host)
 		if err != nil {
 			return nil, err
 		}
-		if len(ipAddrs) == 0 {
-			return nil, ErrNotFound
-		}
-		index := 0
-		if dc.Policy == PolicyRandom {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
-			index = r.Int() % len(ipAddrs)
-		}
-		ip := ipAddrs[index]
 		// IPV6
 		if strings.Contains(ip, ":") {
 			ip = "[" + ip + "]"
 		}
-		// 选择第一个解析IP，后续再看是否增加更多的处理
 		addr = ip + addr[sepIndex:]
+		// TODO 后续确认是否实现dialParallel(ipv4 ipv6一起dial)
 		return dialer.DialContext(ctx, network, addr)
 	}
 }
 
-// Lookup lookup
-func (dc *DNSCache) Lookup(ctx context.Context, host string) ([]string, error) {
-	start := time.Now()
+func (dc *DNSCache) lookup(ctx context.Context, host string) ([]net.IP, error) {
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	resolver := dc.Resolver
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
-	result, err := resolver.LookupIPAddr(ctx, host)
+	network := "ip"
+	switch dc.Network {
+	case NetworkIPV4:
+		network = "ip4"
+	case NetworkIPV6:
+		network = "ip6"
+	}
+	result, err := resolver.LookupIP(ctx, network, host)
 	if err != nil {
 		return nil, err
 	}
 	if len(result) == 0 {
 		return nil, ErrNotFound
 	}
-	ipAddrs := make([]string, len(result))
-	for index, item := range result {
+	return result, nil
+}
+
+// Lookup lookup
+func (dc *DNSCache) Lookup(ctx context.Context, host string) ([]net.IP, error) {
+	start := time.Now()
+	ipList, err := dc.lookup(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	ipAddrs := make([]string, len(ipList))
+	for index, item := range ipList {
 		ipAddrs[index] = item.String()
 	}
 	// 成功则回调
@@ -164,10 +233,10 @@ func (dc *DNSCache) Lookup(ctx context.Context, host string) ([]string, error) {
 		d := time.Since(start)
 		dc.OnStats(host, d, ipAddrs)
 	}
-	return ipAddrs, nil
+	return ipList, nil
 }
 
-func (dc *DNSCache) lookupAndUpdate(ctx context.Context, host string) ([]string, error) {
+func (dc *DNSCache) lookupAndUpdate(ctx context.Context, host string) ([]net.IP, error) {
 	ipAddrs, err := dc.Lookup(ctx, host)
 	if err != nil {
 		return nil, err
@@ -180,7 +249,7 @@ func (dc *DNSCache) lookupAndUpdate(ctx context.Context, host string) ([]string,
 }
 
 // LookupWithCache lookup with cache
-func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]string, error) {
+func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]net.IP, error) {
 	ipCache, _ := dc.get(host)
 	if ipCache != nil {
 		ipAddrs := ipCache.IPAddrs
