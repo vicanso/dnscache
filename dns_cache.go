@@ -16,7 +16,7 @@ var (
 		KeepAlive: 30 * time.Second,
 	}
 )
-var defaultTimeout = 3 * time.Second
+var defaultTimeout = 10 * time.Second
 
 const (
 	PolicyFirst = iota
