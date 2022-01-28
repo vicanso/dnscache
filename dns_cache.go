@@ -319,7 +319,7 @@ func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]net.IP,
 
 // Sets ip cache for the host
 func (dc *DNSCache) Set(host string, ipCache IPCache) error {
-	return dc.Storage.Set(host, ipCache, dc.TTL)
+	return dc.Storage.Set(host, ipCache, dc.TTL+dc.Stale)
 }
 
 // Removes cache of host
