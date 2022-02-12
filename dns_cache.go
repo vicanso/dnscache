@@ -212,7 +212,11 @@ func (dc *DNSCache) getIP(ctx context.Context, network, host string) (string, er
 }
 
 // GetDialContext get dial context function with cache
-func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.Conn, error) {
+func (dc *DNSCache) GetDialContext(retryDialIfCacheFail ...bool) func(context.Context, string, string) (net.Conn, error) {
+	retry := false
+	if len(retryDialIfCacheFail) != 0 {
+		retry = retryDialIfCacheFail[0]
+	}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		dialer := defaultDialer
 		if dc.Dialer != nil {
@@ -222,6 +226,9 @@ func (dc *DNSCache) GetDialContext() func(context.Context, string, string) (net.
 		host := addr[:sepIndex]
 		ip, err := dc.getIP(ctx, network, host)
 		if err != nil {
+			if retry {
+				return dialer.DialContext(ctx, network, addr)
+			}
 			return nil, err
 		}
 		// IPV6
