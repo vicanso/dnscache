@@ -32,26 +32,26 @@ const (
 var ErrNotFound = errors.New("Not Found")
 
 type Storage interface {
-	Set(host string, ipCache IPCache, ttl time.Duration) error
-	Delete(host string) error
-	Get(host string) (IPCache, error)
+	Set(ctx context.Context, host string, ipCache IPCache, ttl time.Duration) error
+	Delete(ctx context.Context, host string) error
+	Get(ctx context.Context, host string) (IPCache, error)
 }
 
 type mapStorage struct {
 	m sync.Map
 }
 
-func (s *mapStorage) Set(host string, ipCache IPCache, _ time.Duration) error {
+func (s *mapStorage) Set(_ context.Context, host string, ipCache IPCache, _ time.Duration) error {
 	s.m.Store(host, &ipCache)
 	return nil
 }
 
-func (s *mapStorage) Delete(host string) error {
+func (s *mapStorage) Delete(_ context.Context, host string) error {
 	s.m.Delete(host)
 	return nil
 }
 
-func (s *mapStorage) Get(host string) (IPCache, error) {
+func (s *mapStorage) Get(_ context.Context, host string) (IPCache, error) {
 	v, _ := s.m.Load(host)
 	if v == nil {
 		return IPCache{}, ErrNotFound
@@ -289,7 +289,7 @@ func (dc *DNSCache) lookupAndUpdate(ctx context.Context, host string) ([]net.IP,
 	if err != nil {
 		return nil, err
 	}
-	err = dc.Set(host, IPCache{
+	err = dc.Set(ctx, host, IPCache{
 		IPAddrs:   ipAddrs,
 		CreatedAt: time.Now(),
 	})
@@ -301,7 +301,7 @@ func (dc *DNSCache) lookupAndUpdate(ctx context.Context, host string) ([]net.IP,
 
 // LookupWithCache lookup with cache
 func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]net.IP, error) {
-	ipCache, _ := dc.Get(host)
+	ipCache, _ := dc.Get(ctx, host)
 	if len(ipCache.IPAddrs) != 0 {
 		ipAddrs := ipCache.IPAddrs
 		createdAt := ipCache.CreatedAt
@@ -325,16 +325,16 @@ func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]net.IP,
 }
 
 // Sets ip cache for the host
-func (dc *DNSCache) Set(host string, ipCache IPCache) error {
-	return dc.Storage.Set(host, ipCache, dc.TTL+dc.Stale)
+func (dc *DNSCache) Set(ctx context.Context, host string, ipCache IPCache) error {
+	return dc.Storage.Set(ctx, host, ipCache, dc.TTL+dc.Stale)
 }
 
 // Removes cache of host
-func (dc *DNSCache) Delete(host string) error {
-	return dc.Storage.Delete(host)
+func (dc *DNSCache) Delete(ctx context.Context, host string) error {
+	return dc.Storage.Delete(ctx, host)
 }
 
 // Gets ip cache of host
-func (dc *DNSCache) Get(host string) (IPCache, error) {
-	return dc.Storage.Get(host)
+func (dc *DNSCache) Get(ctx context.Context, host string) (IPCache, error) {
+	return dc.Storage.Get(ctx, host)
 }

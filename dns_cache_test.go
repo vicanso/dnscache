@@ -75,7 +75,7 @@ func TestGetIP(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal("2001:4860:4802:32::a", ip)
 
-	err = dc.Set("baidu.com", IPCache{
+	err = dc.Set(context.Background(), "baidu.com", IPCache{
 		IPAddrs: []net.IP{
 			net.IPv4(1, 1, 1, 1).To4(),
 			net.IPv6zero,
@@ -168,7 +168,7 @@ func TestSetCache(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(time.Minute)
 	host := "www.baidu.com"
-	err := dc.Set(host, IPCache{
+	err := dc.Set(context.Background(), host, IPCache{
 		CreatedAt: time.Now(),
 		IPAddrs: []net.IP{
 			net.ParseIP("1.1.1.1"),
@@ -178,11 +178,11 @@ func TestSetCache(t *testing.T) {
 	ipAddrs, err := dc.LookupWithCache(context.Background(), host)
 	assert.Nil(err)
 	assert.Equal([]net.IP{net.ParseIP("1.1.1.1")}, ipAddrs)
-	_, err = dc.Get(host)
+	_, err = dc.Get(context.Background(), host)
 	assert.Nil(err)
-	err = dc.Delete(host)
+	err = dc.Delete(context.Background(), host)
 	assert.Nil(err)
-	_, err = dc.Get(host)
+	_, err = dc.Get(context.Background(), host)
 	assert.Equal(ErrNotFound, err)
 }
 
