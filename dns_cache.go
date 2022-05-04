@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -21,6 +22,7 @@ var defaultTimeout = 10 * time.Second
 const (
 	PolicyFirst = iota
 	PolicyRandom
+	PolicyRoundRobin
 )
 
 const (
@@ -68,6 +70,7 @@ type (
 	OnStats func(host string, d time.Duration, ipAddrs []string)
 	// DNSCache dns cache
 	DNSCache struct {
+		index    int32
 		Storage  Storage
 		TTL      time.Duration
 		Stale    time.Duration
@@ -170,6 +173,20 @@ func filterIPByLen(ipAddrs []net.IP, length int) []net.IP {
 	return ipList
 }
 
+func (dc *DNSCache) pick(ipAddrs []net.IP) string {
+	index := 0
+	switch dc.Policy {
+	case PolicyRoundRobin:
+		value := atomic.AddInt32(&dc.index, 1)
+		index = int(value) % len(ipAddrs)
+	case PolicyRandom:
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		index = r.Int() % len(ipAddrs)
+	}
+	ip := ipAddrs[index]
+	return ip.String()
+}
+
 func (dc *DNSCache) getIP(ctx context.Context, network, host string) (string, error) {
 	// ipv6的host地址会添加[]
 	if host[0] == '[' && host[len(host)-1] == ']' {
@@ -202,13 +219,7 @@ func (dc *DNSCache) getIP(ctx context.Context, network, host string) (string, er
 	if len(ipAddrs) == 0 {
 		return "", ErrNotFound
 	}
-	index := 0
-	if dc.Policy == PolicyRandom {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		index = r.Int() % len(ipAddrs)
-	}
-	ip := ipAddrs[index]
-	return ip.String(), nil
+	return dc.pick(ipAddrs), nil
 }
 
 // GetDialContext get dial context function with cache

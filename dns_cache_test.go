@@ -59,6 +59,42 @@ func TestFilterIPByLen(t *testing.T) {
 	}, net.IPv6len))
 }
 
+func TestPolicy(t *testing.T) {
+	assert := assert.New(t)
+
+	dc := New(0, PolicyOption(PolicyFirst))
+	_ = dc.Set(context.Background(), "baidu.com", IPCache{
+		IPAddrs: []net.IP{
+			net.IPv4(1, 1, 1, 1).To4(),
+			net.IPv6zero,
+		},
+	})
+	for i := 0; i < 10; i++ {
+		ip, err := dc.getIP(context.Background(), "", "baidu.com")
+		assert.Nil(err)
+		assert.Equal("1.1.1.1", ip)
+	}
+
+	dc.Policy = PolicyRandom
+	for i := 0; i < 10; i++ {
+		ip, err := dc.getIP(context.Background(), "", "baidu.com")
+		assert.Nil(err)
+		assert.NotEmpty(ip)
+	}
+
+	dc.Policy = PolicyRoundRobin
+	for i := 0; i < 10; i++ {
+		ip, err := dc.getIP(context.Background(), "", "baidu.com")
+		assert.Nil(err)
+		if i%2 == 0 {
+			assert.Equal("::", ip)
+		} else {
+			assert.Equal("1.1.1.1", ip)
+		}
+	}
+
+}
+
 func TestGetIP(t *testing.T) {
 	assert := assert.New(t)
 	dc := New(0)
