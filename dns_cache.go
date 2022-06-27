@@ -177,6 +177,9 @@ func (dc *DNSCache) pick(ipAddrs []net.IP) string {
 	index := 0
 	switch dc.Policy {
 	case PolicyRoundRobin:
+		// index 为整个实例共用，而非host单独使用，
+		// 因此并不是真正round robin，
+		// 如果需要可以针对单独的host实例化对应的dns cache
 		value := atomic.AddInt32(&dc.index, 1)
 		index = int(value) % len(ipAddrs)
 	case PolicyRandom:
@@ -189,7 +192,8 @@ func (dc *DNSCache) pick(ipAddrs []net.IP) string {
 
 func (dc *DNSCache) getIP(ctx context.Context, network, host string) (string, error) {
 	// ipv6的host地址会添加[]
-	if host[0] == '[' && host[len(host)-1] == ']' {
+	if strings.HasPrefix(host, "[") &&
+		strings.HasSuffix(host, "]") {
 		host = host[1 : len(host)-1]
 	}
 	// 如果已经是ip，直接不解析域名
