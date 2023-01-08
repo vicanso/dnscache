@@ -79,6 +79,7 @@ type (
 		Resolver *net.Resolver
 		Policy   int
 		Network  int
+		Timeout  time.Duration
 	}
 	// IPCache ip cache
 	IPCache struct {
@@ -141,6 +142,13 @@ func ResolverOption(resolver *net.Resolver) DNSCacheOption {
 func NetworkOption(network int) DNSCacheOption {
 	return func(d *DNSCache) {
 		d.Network = network
+	}
+}
+
+// TimeoutOption set timeout option
+func TimeoutOption(value time.Duration) DNSCacheOption {
+	return func(d *DNSCache) {
+		d.Timeout = value
 	}
 }
 
@@ -257,7 +265,11 @@ func (dc *DNSCache) GetDialContext(retryDialIfCacheFail ...bool) func(context.Co
 }
 
 func (dc *DNSCache) lookup(ctx context.Context, host string) ([]net.IP, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeout := dc.Timeout
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	resolver := dc.Resolver
 	if resolver == nil {
