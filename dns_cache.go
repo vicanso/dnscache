@@ -335,16 +335,26 @@ func (dc *DNSCache) LookupWithCache(ctx context.Context, host string) ([]net.IP,
 		now := time.Now()
 		// 如果创建时间为0，表示永久有效
 		// 如果在有效期内，直接返回
+		isValid := false
 		if createdAt.IsZero() || createdAt.Add(dc.TTL).After(now) {
-			return ipAddrs, nil
+			isValid = true
 		}
-		// 如果加上stale时长还未过期，则可以直接返回并更新dns解析
-		if dc.Stale != 0 && createdAt.Add(dc.TTL).Add(dc.Stale).After(now) {
+		// 如果已过期，但加上stale时长还未过期，则可以直接返回并更新dns解析
+		if !isValid && dc.Stale != 0 && createdAt.Add(dc.TTL).Add(dc.Stale).After(now) {
+			isValid = true
 			// dns本身的更新是singleflight
 			// 因此此处暂不控制并发
 			go func() {
-				_, _ = dc.lookupAndUpdate(context.Background(), host)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_, _ = dc.lookupAndUpdate(ctx, host)
 			}()
+		}
+		if isValid {
+			// TODO 增加触发trace
+			// 	trace, _ := ctx.Value(nettrace.TraceKey{}).(*nettrace.Trace)
+			// nettrace.TraceKey{}为internal
+			// 后续再研究方式
 			return ipAddrs, nil
 		}
 	}
