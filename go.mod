@@ -1,8 +1,11 @@
 module github.com/vicanso/dnscache
 
-go 1.17
+go 1.22
 
-require github.com/stretchr/testify v1.8.4
+require (
+	github.com/stretchr/testify v1.9.0
+	golang.org/x/sync v0.11.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -1,18 +1,18 @@
-.PHONY: default test test-cover dev hooks
+.PHONY: default test test-cover lint bench hooks
 
-defalt: dev
+default: test
 
 lint:
 	golangci-lint run
 
-# for test
 test:
-	go test -race -cover ./...
+	go test -race -count=1 ./...
 
 test-cover:
 	go test -race -coverprofile=test.out ./... && go tool cover --html=test.out
+
 bench:
-	go test -bench=".*" ./
+	go test -bench=BenchmarkLookupHost -benchmem -count=1 -run=^$$ ./
+
 hooks:
 	cp hooks/* .git/hooks/
-
